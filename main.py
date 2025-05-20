@@ -29,7 +29,7 @@ class EvalResponse(BaseModel):
     tanval: float
     secval: float
     csecval: float
-    alpha_expr: str  # <- expression only, no degrees
+    alpha_rua_expr: str  # ✅ Not alpha_rad or alpha_deg
 
 class ProblemRequest(BaseModel):
     topic: str
@@ -42,6 +42,7 @@ class ProblemStep(BaseModel):
     expected_type: str
     expression: str
     correct_answer: Union[str, float]
+    context_note: Union[str, None] = None  # ✅ NEW
 
 class ProblemResponse(BaseModel):
     problem_id: str
@@ -73,7 +74,7 @@ def evaluate_trig(req: EvalRequest):
     tanval = x / (1 - x)
     secval = denom / (1 - x)
     csecval = denom / x
-    alpha_expr = f"arctan({x} / (1 - {x}))"  # symbolic
+    alpha_rua_expr = f"{x} / (1 - {x})"  # This avoids arctan(), aligns with your geometric interpretation
 
     return {
         "sinval": sinval,
@@ -81,7 +82,7 @@ def evaluate_trig(req: EvalRequest):
         "tanval": tanval,
         "secval": secval,
         "csecval": csecval,
-        "alpha_expr": alpha_expr
+        "alpha_rua_expr": alpha_rua_expr
     }
 
 @app.post("/generate-problem", response_model=ProblemResponse)
@@ -90,25 +91,29 @@ def generate_problem(req: ProblemRequest):
     problem_id = str(uuid4())
 
     step_data = [
-        {
-            "prompt": f"Compute sin(θ) using x = {x}",
-            "expression": "x / sqrt(1 - 2x + 2x^2)",
-            "answer": round(x / math.sqrt(1 - 2 * x + 2 * x**2), 4),
-            "expected_type": "value"
-        },
-        {
-            "prompt": f"Now compute cos(θ) using x = {x}",
-            "expression": "(1 - x) / sqrt(1 - 2x + 2x^2)",
-            "answer": round((1 - x) / math.sqrt(1 - 2 * x + 2 * x**2), 4),
-            "expected_type": "value"
-        },
-        {
-            "prompt": f"Give the algebraic expression for α = arctan(x / (1 - x))",
-            "expression": f"arctan({x} / (1 - {x}))",
-            "answer": f"arctan({x} / (1 - {x}))",  # symbolic only
-            "expected_type": "expression"
-        }
-    ]
+    {
+        "prompt": f"Compute sin(θ) using RUA parameter x = {x}",
+        "expression": "x / sqrt(1 - 2x + 2x^2)",
+        "answer": round(x / math.sqrt(1 - 2 * x + 2 * x**2), 4),
+        "expected_type": "value",
+        "context_note": f"x = {x} represents a position along a secant of length √2. This expression gives the opposite/hypotenuse ratio in a triangle constructed from that point."
+    },
+    {
+        "prompt": f"Now compute cos(θ) using x = {x}",
+        "expression": "(1 - x) / sqrt(1 - 2x + 2x^2)",
+        "answer": round((1 - x) / math.sqrt(1 - 2 * x + 2 * x**2), 4),
+        "expected_type": "value",
+        "context_note": "This gives the adjacent/hypotenuse ratio in the RUA-based triangle. The denominator is shared with the sine expression."
+    },
+    {
+        "prompt": f"Express the radical unit angle α as a ratio",
+        "expression": f"x / (1 - x)",
+        "answer": round(x / (1 - x), 4),
+        "expected_type": "value",
+        "context_note": "α here is the proportion along the secant and is not evaluated as a circular angle. It expresses angle size as a rational relation only."
+    }
+]
+
 
     steps = []
     for i, step in enumerate(step_data):
@@ -123,8 +128,10 @@ def generate_problem(req: ProblemRequest):
             prompt=step["prompt"],
             expected_type=step["expected_type"],
             expression=step["expression"],
-            correct_answer=correct_answer
+            correct_answer=correct_answer,
+            context_note=step["context_note"]
         ))
+
 
     return ProblemResponse(problem_id=problem_id, x=x, steps=steps)
 
