@@ -7,7 +7,7 @@ info:
     and interacting with adaptive reasoning-based tutoring systems.
 
 servers:
-  - url: https://api.trigtutor.example.com
+  - url: https://trig-tutor-web-service.onrender.com
 
 paths:
   /evaluate:
