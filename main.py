@@ -46,5 +46,6 @@ def evaluate_trig(req: EvalRequest):
         "tanval": tanval,
         "secval": secval,
         "csecval": csecval,
-        "alpha_rad":_
+        "alpha_rad": alpha_rad,
+        "alpha_deg": alpha_deg
     }
