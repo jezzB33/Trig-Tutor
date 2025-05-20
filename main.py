@@ -38,3 +38,4 @@ def evaluate_trig(req: EvalRequest):
         "secval": secval,
         "csecval": csecval,
         "alpha_rad":_
+    }
