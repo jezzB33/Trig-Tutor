@@ -1,0 +1,168 @@
+openapi: 3.1.0
+info:
+  title: Rational Trigonometry Tutor API
+  version: "1.0.0"
+  description: |
+    An API for evaluating rational trigonometric expressions, generating algebraic trig problems,
+    and interacting with adaptive reasoning-based tutoring systems.
+
+servers:
+  - url: https://api.trigtutor.example.com
+
+paths:
+  /evaluate:
+    post:
+      operationId: evaluateTrigExpressions
+      summary: Evaluate rational trigonometric values given a parameter x ∈ (0, 1)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                x:
+                  type: number
+                  minimum: 0
+                  maximum: 1
+              required: [x]
+      responses:
+        '200':
+          description: Rational trigonometric values at x
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sinval:
+                    type: number
+                  cosval:
+                    type: number
+                  tanval:
+                    type: number
+                  secval:
+                    type: number
+                  csecval:
+                    type: number
+                  alpha_rad:
+                    type: number
+                  alpha_deg:
+                    type: number
+
+  /generate-problem:
+    post:
+      operationId: generateTrigProblem
+      summary: Generate a trigonometry problem based on a concept and difficulty
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                topic:
+                  type: string
+                  enum:
+                    - sine-from-x
+                    - inverse-from-sinval
+                    - verify-identity
+                    - normalize-vector
+                    - evaluate-combo
+                difficulty:
+                  type: string
+                  enum: [basic, medium, advanced]
+                mode:
+                  type: string
+                  enum: [full-solution, missing-steps, multiple-choice]
+              required: [topic, difficulty, mode]
+      responses:
+        '200':
+          description: A structured problem object
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  problem_id:
+                    type: string
+                  x:
+                    type: number
+                  steps:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        step_id:
+                          type: string
+                        prompt:
+                          type: string
+                        expected_type:
+                          type: string
+                          enum: [expression, value, reasoning]
+                        expression:
+                          type: string
+                        correct_answer:
+                          oneOf:
+                            - type: string
+                            - type: number
+
+  /evaluate-problem:
+    post:
+      operationId: evaluateProblemStep
+      summary: Evaluate a student answer to a problem step
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                step_id:
+                  type: string
+                user_response:
+                  oneOf:
+                    - type: string
+                    - type: number
+                correct_answer:
+                  oneOf:
+                    - type: string
+                    - type: number
+              required: [step_id, user_response, correct_answer]
+      responses:
+        '200':
+          description: Evaluation result for a reasoning step
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  is_correct:
+                    type: boolean
+                  feedback:
+                    type: string
+
+  /concept-map:
+    get:
+      operationId: getConceptMap
+      summary: Retrieve conceptual relationships for adaptive learning decisions
+      responses:
+        '200':
+          description: Related topics and prerequisites
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  topics:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        name:
+                          type: string
+                        prerequisites:
+                          type: array
+                          items:
+                            type: string
