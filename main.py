@@ -17,7 +17,7 @@ app.add_middleware(
 )
 
 # ========================
-# Models for /evaluate
+# Models
 # ========================
 
 class EvalRequest(BaseModel):
@@ -29,12 +29,7 @@ class EvalResponse(BaseModel):
     tanval: float
     secval: float
     csecval: float
-    alpha_rad: float
-    alpha_deg: float
-
-# ========================
-# Models for /generate-problem
-# ========================
+    alpha_expr: str  # <- expression only, no degrees
 
 class ProblemRequest(BaseModel):
     topic: str
@@ -52,10 +47,6 @@ class ProblemResponse(BaseModel):
     problem_id: str
     x: float
     steps: List[ProblemStep]
-
-# ========================
-# Models for /evaluate-problem
-# ========================
 
 class ProblemEvalRequest(BaseModel):
     step_id: str
@@ -76,14 +67,13 @@ def evaluate_trig(req: EvalRequest):
     if not 0 < x < 1:
         raise HTTPException(status_code=400, detail="x must be in (0,1)")
 
-    denom = math.sqrt(x**2 + (1 - x)**2)
+    denom = math.sqrt(1 - 2 * x + 2 * x**2)
     sinval = x / denom
     cosval = (1 - x) / denom
     tanval = x / (1 - x)
     secval = denom / (1 - x)
     csecval = denom / x
-    alpha_rad = math.atan(tanval)
-    alpha_deg = math.degrees(alpha_rad)
+    alpha_expr = f"arctan({x} / (1 - {x}))"  # symbolic
 
     return {
         "sinval": sinval,
@@ -91,33 +81,32 @@ def evaluate_trig(req: EvalRequest):
         "tanval": tanval,
         "secval": secval,
         "csecval": csecval,
-        "alpha_rad": alpha_rad,
-        "alpha_deg": alpha_deg
+        "alpha_expr": alpha_expr
     }
 
 @app.post("/generate-problem", response_model=ProblemResponse)
 def generate_problem(req: ProblemRequest):
-    x = round(random.uniform(0.2, 0.8), 2)
+    x = round(random.uniform(0.2, 0.8), 4)
     problem_id = str(uuid4())
 
     step_data = [
         {
             "prompt": f"Compute sin(θ) using x = {x}",
-            "expression": "x / sqrt(x^2 + (1 - x)^2)",
-            "answer": round(x / (x**2 + (1 - x)**2) ** 0.5, 4),
+            "expression": "x / sqrt(1 - 2x + 2x^2)",
+            "answer": round(x / math.sqrt(1 - 2 * x + 2 * x**2), 4),
             "expected_type": "value"
         },
         {
             "prompt": f"Now compute cos(θ) using x = {x}",
-            "expression": "(1 - x) / sqrt(x^2 + (1 - x)^2)",
-            "answer": round((1 - x) / (x**2 + (1 - x)**2) ** 0.5, 4),
+            "expression": "(1 - x) / sqrt(1 - 2x + 2x^2)",
+            "answer": round((1 - x) / math.sqrt(1 - 2 * x + 2 * x**2), 4),
             "expected_type": "value"
         },
         {
-            "prompt": f"Derive angle α = arctan(x / (1 - x))",
-            "expression": "arctan(x / (1 - x))",
-            "answer": round(math.degrees(math.atan(x / (1 - x))), 2),
-            "expected_type": "value"
+            "prompt": f"Give the algebraic expression for α = arctan(x / (1 - x))",
+            "expression": f"arctan({x} / (1 - {x}))",
+            "answer": f"arctan({x} / (1 - {x}))",  # symbolic only
+            "expected_type": "expression"
         }
     ]
 
@@ -142,7 +131,7 @@ def generate_problem(req: ProblemRequest):
 @app.post("/evaluate-problem", response_model=ProblemEvalResponse)
 def evaluate_problem_step(req: ProblemEvalRequest):
     is_correct = str(req.user_response).strip() == str(req.correct_answer).strip()
-    feedback = "Correct!" if is_correct else "Try again — check your simplification or value."
+    feedback = "Correct!" if is_correct else "Try again — check your simplification or algebra."
     return ProblemEvalResponse(is_correct=is_correct, feedback=feedback)
 
 @app.get("/concept-map")
@@ -151,13 +140,18 @@ def get_concept_map():
         "topics": [
             {
                 "id": "sine-from-x",
-                "name": "Compute sine from x",
+                "name": "Compute sine using radical unit angle",
                 "prerequisites": []
             },
             {
-                "id": "verify-identity",
-                "name": "Verify trig identity algebraically",
-                "prerequisites": ["sine-from-x", "cosine-from-x"]
+                "id": "derive-ratios",
+                "name": "Derive rational cosine and tangent",
+                "prerequisites": ["sine-from-x"]
+            },
+            {
+                "id": "inverse-expressions",
+                "name": "Construct symbolic inverse expressions",
+                "prerequisites": ["derive-ratios"]
             }
         ]
     }
